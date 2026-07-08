@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+.pytest_cache/
+.cursor*
+data/
+import/
+logs/
+*.egg-info/
+*.db
+*.sqlite
+*.csv
+*.pyc
