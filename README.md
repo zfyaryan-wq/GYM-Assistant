@@ -14,6 +14,43 @@
 - 每次运动打卡会估算本次卡路里消耗，并结合该用户近期运动记忆生成更自然的回复。
 - `scripts/import_csv.py`：导入 Coze 导出的 `db_cl4cl_log` CSV。
 
+## 技术架构
+
+```mermaid
+flowchart LR
+    user[飞书群用户] --> feishu[飞书开放平台]
+    feishu --> webhook[FastAPI 回调<br/>/api/feishu/events]
+
+    webhook --> parser[消息解析<br/>文本 / 图片 / 富文本]
+    parser --> intent[意图识别<br/>打卡 / 本人积分 / 排行榜 / 周报]
+
+    intent --> grading[评分与卡路里估算]
+    grading --> memory[读取用户近期运动记忆]
+    memory --> llm[OpenAI 兼容多模态模型]
+    llm --> log[(score_logs)]
+
+    intent --> score[本人积分查询]
+    intent --> leaderboard[赛季排行榜]
+    intent --> weekly[本周卡路里周报]
+
+    score --> log
+    leaderboard --> log
+    weekly --> log
+
+    log --> reply[飞书消息回复]
+    llm --> reply
+    reply --> feishu
+```
+
+核心模块：
+
+- `app/main.py`：HTTP API 和飞书事件入口。
+- `app/services.py`：打分、积分查询、排行榜、周报和用户运动记忆。
+- `app/llm.py`：调用 OpenAI 兼容多模态模型，解析结构化评分结果。
+- `app/db.py`：SQLAlchemy 数据模型和 SQLite/PostgreSQL 连接。
+- `app/workflow_config.json`：可编辑的关键词、话术、评分规则和周报模板。
+- `scripts/import_csv.py`：导入历史打卡日志。
+
 ## 本地运行
 
 ```powershell

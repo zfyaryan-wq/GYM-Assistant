@@ -15,6 +15,43 @@ A self-hosted Feishu bot backend for health check-ins, wellness scoring, calorie
 - Each workout check-in estimates calories burned and uses recent user activity memory to produce a more natural reply.
 - `scripts/import_csv.py` imports exported Coze `db_cl4cl_log` CSV files.
 
+## Technical Architecture
+
+```mermaid
+flowchart LR
+    user[Feishu group user] --> feishu[Feishu Open Platform]
+    feishu --> webhook[FastAPI callback<br/>/api/feishu/events]
+
+    webhook --> parser[Message parser<br/>text / image / rich text]
+    parser --> intent[Intent detection<br/>check-in / my score / leaderboard / weekly report]
+
+    intent --> grading[Scoring and calorie estimation]
+    grading --> memory[Recent user activity memory]
+    memory --> llm[OpenAI-compatible multimodal model]
+    llm --> log[(score_logs)]
+
+    intent --> score[Personal score query]
+    intent --> leaderboard[Season leaderboard]
+    intent --> weekly[Weekly calorie report]
+
+    score --> log
+    leaderboard --> log
+    weekly --> log
+
+    log --> reply[Feishu message reply]
+    llm --> reply
+    reply --> feishu
+```
+
+Core modules:
+
+- `app/main.py`: HTTP API and Feishu event entry point.
+- `app/services.py`: scoring, score queries, leaderboards, weekly reports, and user activity memory.
+- `app/llm.py`: calls an OpenAI-compatible multimodal model and parses structured grading results.
+- `app/db.py`: SQLAlchemy models and SQLite/PostgreSQL connection setup.
+- `app/workflow_config.json`: editable keywords, responses, scoring rules, and report templates.
+- `scripts/import_csv.py`: imports historical check-in logs.
+
 ## Local Development
 
 ```powershell
