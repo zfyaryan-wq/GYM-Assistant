@@ -19,7 +19,7 @@ async def lifespan(_: FastAPI):
     yield
 
 
-app = FastAPI(title="Health Check-in Feishu Bot", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="GYM-Assistant", version="0.1.0", lifespan=lifespan)
 
 
 @app.get("/health", response_model=HealthResponse)

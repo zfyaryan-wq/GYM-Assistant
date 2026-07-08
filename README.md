@@ -1,4 +1,4 @@
-# Health Check-in Feishu Bot
+# GYM-Assistant
 
 [English](README.en.md)
 
@@ -54,7 +54,7 @@ flowchart LR
 ## 本地运行
 
 ```powershell
-cd health-checkin-feishu-bot
+cd GYM-Assistant
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"

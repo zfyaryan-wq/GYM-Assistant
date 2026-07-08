@@ -44,7 +44,7 @@ def upsert_row(db: Session, row: dict[str, str]) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Import historical health check-in CSV logs into the local database.")
+    parser = argparse.ArgumentParser(description="Import historical GYM-Assistant check-in CSV logs into the local database.")
     parser.add_argument("csv_path", type=Path)
     args = parser.parse_args()
     count = import_csv(args.csv_path)

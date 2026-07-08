@@ -3,9 +3,9 @@ requires = ["setuptools>=80.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "health-checkin-feishu-bot"
+name = "GYM-Assistant"
 version = "0.1.0"
-description = "Self-hosted Feishu bot for health check-ins, scoring, calorie estimation, and weekly reports."
+description = "Self-hosted Feishu bot for gym check-ins, scoring, calorie estimation, and weekly reports."
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.116.0",

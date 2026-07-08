@@ -1,4 +1,4 @@
-# Health Check-in Feishu Bot
+# GYM-Assistant
 
 [中文](README.md)
 
@@ -55,7 +55,7 @@ Core modules:
 ## Local Development
 
 ```powershell
-cd health-checkin-feishu-bot
+cd GYM-Assistant
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
