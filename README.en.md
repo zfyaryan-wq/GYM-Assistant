@@ -13,7 +13,7 @@ A self-hosted Feishu bot backend for health check-ins, wellness scoring, calorie
 - Group commands such as `排行榜`, `积分榜`, `排名`, and `日报` return the current season leaderboard.
 - Group commands such as `周报`, `本周总结`, `本周消耗`, and `卡路里周报` return the weekly calorie report.
 - Each workout check-in estimates calories burned and uses recent user activity memory to produce a more natural reply.
-- `scripts/import_csv.py` imports exported Coze `db_cl4cl_log` CSV files.
+- `scripts/import_csv.py` imports historical check-in log CSV files.
 
 ## Technical Architecture
 
@@ -75,7 +75,7 @@ FEISHU_VERIFICATION_TOKEN=your Feishu verification token
 Optionally import historical CSV data:
 
 ```powershell
-python scripts\import_csv.py ".\path\to\db_cl4cl_log.csv"
+python scripts\import_csv.py ".\path\to\checkin_logs.csv"
 ```
 
 Start the API:

@@ -12,7 +12,7 @@
 - 飞书群内发送 `排行榜`、`积分榜`、`排名`、`日报` 会直接返回当前排行榜。
 - 飞书群内发送 `周报`、`本周总结`、`本周消耗`、`卡路里周报` 会返回本周运动消耗总结。
 - 每次运动打卡会估算本次卡路里消耗，并结合该用户近期运动记忆生成更自然的回复。
-- `scripts/import_csv.py`：导入 Coze 导出的 `db_cl4cl_log` CSV。
+- `scripts/import_csv.py`：导入历史打卡日志 CSV。
 
 ## 技术架构
 
@@ -74,7 +74,7 @@ FEISHU_VERIFICATION_TOKEN=飞书事件订阅 Verification Token
 可选：导入历史 CSV：
 
 ```powershell
-python scripts\import_csv.py ".\path\to\db_cl4cl_log.csv"
+python scripts\import_csv.py ".\path\to\checkin_logs.csv"
 ```
 
 启动：
