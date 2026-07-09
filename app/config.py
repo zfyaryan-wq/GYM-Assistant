@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     env: str = "local"
     database_url: str = "sqlite:///./data/app.db"
     default_season_start: str = "2025-05-11"
+    public_base_url: str = ""
 
     llm_base_url: str = "https://api.example.com/v1"
     llm_api_key: str = ""
@@ -22,6 +23,7 @@ class Settings(BaseSettings):
     feishu_app_secret: str = Field(default="", repr=False)
     feishu_verification_token: str = Field(default="", repr=False)
     feishu_encrypt_key: str = Field(default="", repr=False)
+    feishu_report_chat_id: str = ""
 
     @property
     def chat_completions_url(self) -> str:

@@ -1,12 +1,18 @@
 import base64
 import json
+import logging
 import mimetypes
+from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import httpx
 from fastapi import HTTPException
 
 from app.config import Settings
+
+
+logger = logging.getLogger(__name__)
 
 
 async def get_tenant_access_token(settings: Settings) -> str:
@@ -59,6 +65,31 @@ def image_bytes_to_data_uri(content: bytes, filename: str = "image.jpg") -> str:
     return f"data:{mime_type};base64,{encoded}"
 
 
+def _image_extension(content: bytes, filename: str) -> str:
+    guessed = Path(filename).suffix.lower()
+    if guessed in {".jpg", ".jpeg", ".png", ".webp"}:
+        return ".jpg" if guessed == ".jpeg" else guessed
+    if content.startswith(b"\xff\xd8"):
+        return ".jpg"
+    if content.startswith(b"\x89PNG\r\n\x1a\n"):
+        return ".png"
+    if content.startswith(b"RIFF") and content[8:12] == b"WEBP":
+        return ".webp"
+    return ".jpg"
+
+
+def image_bytes_to_public_url(settings: Settings, content: bytes, filename: str = "image.jpg") -> str:
+    if not settings.public_base_url:
+        return image_bytes_to_data_uri(content, filename)
+
+    extension = _image_extension(content, filename)
+    static_dir = Path("data/static/images")
+    static_dir.mkdir(parents=True, exist_ok=True)
+    image_name = f"{uuid4().hex}{extension}"
+    (static_dir / image_name).write_bytes(content)
+    return f"{settings.public_base_url.rstrip('/')}/static/images/{image_name}"
+
+
 async def reply_message(settings: Settings, message_id: str, text: str) -> dict[str, Any]:
     token = await get_tenant_access_token(settings)
     async with httpx.AsyncClient(timeout=30) as client:
@@ -67,4 +98,50 @@ async def reply_message(settings: Settings, message_id: str, text: str) -> dict[
             headers={"Authorization": f"Bearer {token}"},
             json={"msg_type": "text", "content": json.dumps({"text": text}, ensure_ascii=False)},
         )
-    return response.json()
+    if response.status_code >= 400:
+        logger.error("Feishu reply HTTP error: status=%s body=%s", response.status_code, response.text[:1000])
+        raise HTTPException(status_code=502, detail=f"Feishu reply failed: {response.text[:500]}")
+
+    data = response.json()
+    if data.get("code") != 0:
+        logger.error("Feishu reply API error: %s", data)
+        raise HTTPException(status_code=502, detail=f"Feishu reply failed: {data}")
+    return data
+
+
+async def delete_message(settings: Settings, message_id: str) -> dict[str, Any]:
+    token = await get_tenant_access_token(settings)
+    async with httpx.AsyncClient(timeout=30) as client:
+        response = await client.delete(
+            f"https://open.feishu.cn/open-apis/im/v1/messages/{message_id}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+    if response.status_code >= 400:
+        logger.error("Feishu delete HTTP error: status=%s body=%s", response.status_code, response.text[:1000])
+        raise HTTPException(status_code=502, detail=f"Feishu delete failed: {response.text[:500]}")
+
+    data = response.json()
+    if data.get("code") != 0:
+        logger.error("Feishu delete API error: %s", data)
+        raise HTTPException(status_code=502, detail=f"Feishu delete failed: {data}")
+    return data
+
+
+async def send_message_to_chat(settings: Settings, chat_id: str, text: str) -> dict[str, Any]:
+    token = await get_tenant_access_token(settings)
+    async with httpx.AsyncClient(timeout=30) as client:
+        response = await client.post(
+            "https://open.feishu.cn/open-apis/im/v1/messages",
+            params={"receive_id_type": "chat_id"},
+            headers={"Authorization": f"Bearer {token}"},
+            json={"receive_id": chat_id, "msg_type": "text", "content": json.dumps({"text": text}, ensure_ascii=False)},
+        )
+    if response.status_code >= 400:
+        logger.error("Feishu send HTTP error: status=%s body=%s", response.status_code, response.text[:1000])
+        raise HTTPException(status_code=502, detail=f"Feishu send failed: {response.text[:500]}")
+
+    data = response.json()
+    if data.get("code") != 0:
+        logger.error("Feishu send API error: %s", data)
+        raise HTTPException(status_code=502, detail=f"Feishu send failed: {data}")
+    return data

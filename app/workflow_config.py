@@ -9,6 +9,7 @@ class IntentKeywords(BaseModel):
     unsupported: list[str]
     claim_score: list[str]
     query_own_score: list[str]
+    health_advice: list[str]
     report_command: list[str]
     weekly_report_command: list[str]
 

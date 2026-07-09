@@ -17,6 +17,7 @@ class ScoreLog(Base):
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     sys_platform: Mapped[str | None] = mapped_column(String(32), nullable=True)
     uuid: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    source_message_id: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     bstudio_create_time: Mapped[DateTime] = mapped_column(DateTime, nullable=False, server_default=func.now())
     score_delta: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     note: Mapped[str] = mapped_column(String(255), nullable=False, default="")
@@ -50,6 +51,7 @@ def init_db() -> None:
 def _ensure_score_log_columns() -> None:
     existing = {column["name"] for column in inspect(engine).get_columns(ScoreLog.__tablename__)}
     missing_columns = {
+        "source_message_id": "VARCHAR(255) NOT NULL DEFAULT ''",
         "activity_type": "VARCHAR(255) NOT NULL DEFAULT ''",
         "activity_duration_minutes": "INTEGER",
         "calories_burned": "INTEGER",

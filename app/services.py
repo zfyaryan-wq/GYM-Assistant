@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.config import Settings
 from app.db import ScoreLog
 from app.intent import Intent, detect_intent
-from app.llm import GradeResult, grade_with_llm
+from app.llm import GradeResult, answer_health_question, grade_with_llm
 from app.schemas import GradingRequest, GradingResponse, ReportResponse
 from app.workflow_config import get_workflow_config
 
@@ -21,6 +21,7 @@ def add_score_log(db: Session, request: GradingRequest, result: GradeResult) -> 
         id=_new_log_id(),
         sys_platform=request.sys_platform,
         uuid=None,
+        source_message_id=request.source_message_id or "",
         bstudio_create_time=datetime.now(),
         score_delta=result.score,
         note=result.note,
@@ -35,6 +36,13 @@ def add_score_log(db: Session, request: GradingRequest, result: GradeResult) -> 
     db.commit()
     db.refresh(row)
     return row
+
+
+def has_processed_message(db: Session, source_message_id: str) -> bool:
+    if not source_message_id:
+        return False
+    existing = db.scalar(select(ScoreLog.id).where(ScoreLog.source_message_id == source_message_id).limit(1))
+    return existing is not None
 
 
 def query_user_score(db: Session, sender_id: str, since: str | None = None) -> int:
@@ -75,6 +83,54 @@ def query_user_activity_memory(db: Session, sender_id: str, limit: int = 5) -> l
     return memory
 
 
+def query_recent_activity_types(db: Session, sender_id: str, limit: int = 2) -> list[str]:
+    if not sender_id:
+        return []
+    rows = db.execute(
+        select(ScoreLog.activity_type, ScoreLog.activity_summary, ScoreLog.note)
+        .where(ScoreLog.sender_id == sender_id)
+        .where(ScoreLog.score_delta > 0)
+        .order_by(ScoreLog.bstudio_create_time.desc())
+        .limit(limit)
+    ).all()
+    return [str(row.activity_type or row.activity_summary or row.note or "") for row in rows]
+
+
+def _activity_training_category(activity_text: str) -> str:
+    text = activity_text or ""
+    if any(keyword in text for keyword in ("胸", "背", "肩", "臂", "二头", "三头", "卧推", "划船", "引体", "上肢")):
+        return "upper_strength"
+    if any(keyword in text for keyword in ("腿", "臀", "深蹲", "硬拉", "下肢")):
+        return "lower_strength"
+    if any(keyword in text for keyword in ("跑", "骑", "游泳", "椭圆", "有氧", "跳绳", "爬坡")):
+        return "cardio"
+    if any(keyword in text for keyword in ("瑜伽", "普拉提", "拉伸", "恢复")):
+        return "mobility"
+    if any(keyword in text for keyword in ("力量", "训练", "健身")):
+        return "strength"
+    return "other"
+
+
+def build_training_tip(result: GradeResult, recent_activity_types: list[str]) -> str:
+    if result.score <= 0:
+        return ""
+
+    tips: list[str] = []
+    categories = [_activity_training_category(item) for item in [result.activity_type or result.activity_summary or result.note, *recent_activity_types]]
+    if categories[:3] == ["upper_strength", "upper_strength", "upper_strength"]:
+        tips.append("我多嘴一句：你最近有点上肢连轴转了，下次可以换个下肢、核心或轻有氧，给肩肘腕放个小假。")
+
+    duration = result.activity_duration_minutes or 0
+    calories = result.calories_burned or 0
+    calories_per_minute = calories / duration if duration else 0
+    if duration >= 90 or calories >= 800 or calories_per_minute >= 12:
+        tips.append("这次量不小，收操别省，拉伸和补水安排一下，别让明天的身体来群里投诉。")
+    elif duration >= 60 or calories >= 500:
+        tips.append("这次训练量挺实在，后面记得拉伸补水；下一练看疲劳感，别硬刚。")
+
+    return "\n".join(tips[:2])
+
+
 async def grade_request(settings: Settings, db: Session, request: GradingRequest) -> GradingResponse:
     workflow = get_workflow_config()
     responses = workflow.responses
@@ -91,9 +147,16 @@ async def grade_request(settings: Settings, db: Session, request: GradingRequest
         score = query_user_score(db, request.sender_id, settings.default_season_start)
         output = responses.query_own_score.format(score=score)
         return GradingResponse(output=output, score=0, note="查询本人积分", inserted=False)
+    if intent == Intent.HEALTH_ADVICE:
+        user_activity_memory = query_user_activity_memory(db, request.sender_id)
+        output = await answer_health_question(settings, text, user_activity_memory=user_activity_memory, user_name=request.sender_name)
+        return GradingResponse(output=output, score=0, note="健康问答", inserted=False)
+    if has_processed_message(db, request.source_message_id):
+        return GradingResponse(output="这条打卡已经记录过啦，避免重复加分。", score=0, note="重复消息", inserted=False)
 
     user_activity_memory = query_user_activity_memory(db, request.sender_id)
-    result = await grade_with_llm(settings, text, request.picture, user_activity_memory=user_activity_memory)
+    recent_activity_types = query_recent_activity_types(db, request.sender_id)
+    result = await grade_with_llm(settings, text, request.picture, user_activity_memory=user_activity_memory, user_name=request.sender_name)
     add_score_log(db, request, result)
 
     suffixes: list[str] = []
@@ -103,6 +166,9 @@ async def grade_request(settings: Settings, db: Session, request: GradingRequest
         suffixes.append(responses.zero_suffix)
     if result.calories_burned:
         suffixes.append(responses.calorie_suffix.format(calories=result.calories_burned))
+    training_tip = build_training_tip(result, recent_activity_types)
+    if training_tip:
+        suffixes.append(training_tip)
 
     output = f"{result.output}\n" + "\n".join(suffixes)
 
@@ -122,12 +188,12 @@ def _leaderboard_query(since: str) -> Select:
     return (
         select(
             ScoreLog.sender_id,
-            ScoreLog.sender_name,
+            func.max(ScoreLog.sender_name).label("sender_name"),
             func.sum(ScoreLog.score_delta).label("score"),
         )
         .where(ScoreLog.sender_id != "")
         .where(ScoreLog.bstudio_create_time >= since)
-        .group_by(ScoreLog.sender_id, ScoreLog.sender_name)
+        .group_by(ScoreLog.sender_id)
         .having(func.sum(ScoreLog.score_delta) > 0)
         .order_by(func.sum(ScoreLog.score_delta).desc())
     )

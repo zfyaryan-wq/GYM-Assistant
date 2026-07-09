@@ -7,6 +7,7 @@ class Intent(StrEnum):
     UNSUPPORTED = "unsupported"
     CLAIM_SCORE = "claim_score"
     QUERY_OWN_SCORE = "query_own_score"
+    HEALTH_ADVICE = "health_advice"
     NORMAL = "normal"
 
 
@@ -21,4 +22,7 @@ def detect_intent(text: str) -> Intent:
         return Intent.CLAIM_SCORE
     if any(keyword in normalized for keyword in keywords.query_own_score):
         return Intent.QUERY_OWN_SCORE
+    question_markers = ("?", "？", "吗", "么", "怎么", "如何", "多少", "建议", "能不能", "应该")
+    if any(keyword.lower() in normalized for keyword in keywords.health_advice) and any(marker in normalized for marker in question_markers):
+        return Intent.HEALTH_ADVICE
     return Intent.NORMAL

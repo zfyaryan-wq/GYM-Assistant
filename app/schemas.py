@@ -7,6 +7,7 @@ class GradingRequest(BaseModel):
     sender_id: str = ""
     sender_name: str = ""
     sys_platform: str = "10000011"
+    source_message_id: str = ""
 
 
 class GradingResponse(BaseModel):
