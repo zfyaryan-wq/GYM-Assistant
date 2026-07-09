@@ -17,7 +17,7 @@ from app.workflow_config import get_workflow_config
 
 
 logger = logging.getLogger(__name__)
-ACK_REPLY_TEXT = "收到 🏃"
+ACK_REPLY_TEXT = "\u6536\u5230 \U0001f3c3"
 REPORT_CHAT_ID_FILE = Path("data/report_chat_id.txt")
 
 

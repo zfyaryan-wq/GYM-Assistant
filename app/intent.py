@@ -22,7 +22,7 @@ def detect_intent(text: str) -> Intent:
         return Intent.CLAIM_SCORE
     if any(keyword in normalized for keyword in keywords.query_own_score):
         return Intent.QUERY_OWN_SCORE
-    question_markers = ("?", "？", "吗", "么", "怎么", "如何", "多少", "建议", "能不能", "应该")
+    question_markers = ("?", "\uff1f", "\u5417", "\u4e48", "\u600e\u4e48", "\u5982\u4f55", "\u591a\u5c11", "\u5efa\u8bae", "\u80fd\u4e0d\u80fd", "\u5e94\u8be5")
     if any(keyword.lower() in normalized for keyword in keywords.health_advice) and any(marker in normalized for marker in question_markers):
         return Intent.HEALTH_ADVICE
     return Intent.NORMAL

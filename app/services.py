@@ -76,10 +76,10 @@ def query_user_activity_memory(db: Session, sender_id: str, limit: int = 5) -> l
     for row in rows:
         parts = [row.bstudio_create_time.strftime("%m-%d"), row.activity_type or row.activity_summary or row.note]
         if row.activity_duration_minutes:
-            parts.append(f"{int(row.activity_duration_minutes)}分钟")
+            parts.append(f"{int(row.activity_duration_minutes)}\u5206\u949f")
         if row.calories_burned:
-            parts.append(f"约{int(row.calories_burned)}千卡")
-        memory.append("，".join(parts))
+            parts.append(f"\u7ea6{int(row.calories_burned)}\u5343\u5361")
+        memory.append("\uff0c".join(parts))
     return memory
 
 
@@ -98,15 +98,15 @@ def query_recent_activity_types(db: Session, sender_id: str, limit: int = 2) -> 
 
 def _activity_training_category(activity_text: str) -> str:
     text = activity_text or ""
-    if any(keyword in text for keyword in ("胸", "背", "肩", "臂", "二头", "三头", "卧推", "划船", "引体", "上肢")):
+    if any(keyword in text for keyword in ("\u80f8", "\u80cc", "\u80a9", "\u81c2", "\u4e8c\u5934", "\u4e09\u5934", "\u5367\u63a8", "\u5212\u8239", "\u5f15\u4f53", "\u4e0a\u80a2")):
         return "upper_strength"
-    if any(keyword in text for keyword in ("腿", "臀", "深蹲", "硬拉", "下肢")):
+    if any(keyword in text for keyword in ("\u817f", "\u81c0", "\u6df1\u8e72", "\u786c\u62c9", "\u4e0b\u80a2")):
         return "lower_strength"
-    if any(keyword in text for keyword in ("跑", "骑", "游泳", "椭圆", "有氧", "跳绳", "爬坡")):
+    if any(keyword in text for keyword in ("\u8dd1", "\u9a91", "\u6e38\u6cf3", "\u692d\u5706", "\u6709\u6c27", "\u8df3\u7ef3", "\u722c\u5761")):
         return "cardio"
-    if any(keyword in text for keyword in ("瑜伽", "普拉提", "拉伸", "恢复")):
+    if any(keyword in text for keyword in ("\u745c\u4f3d", "\u666e\u62c9\u63d0", "\u62c9\u4f38", "\u6062\u590d")):
         return "mobility"
-    if any(keyword in text for keyword in ("力量", "训练", "健身")):
+    if any(keyword in text for keyword in ("\u529b\u91cf", "\u8bad\u7ec3", "\u5065\u8eab")):
         return "strength"
     return "other"
 
@@ -118,15 +118,15 @@ def build_training_tip(result: GradeResult, recent_activity_types: list[str]) ->
     tips: list[str] = []
     categories = [_activity_training_category(item) for item in [result.activity_type or result.activity_summary or result.note, *recent_activity_types]]
     if categories[:3] == ["upper_strength", "upper_strength", "upper_strength"]:
-        tips.append("我多嘴一句：你最近有点上肢连轴转了，下次可以换个下肢、核心或轻有氧，给肩肘腕放个小假。")
+        tips.append("\u6211\u591a\u5634\u4e00\u53e5\uff1a\u4f60\u6700\u8fd1\u6709\u70b9\u4e0a\u80a2\u8fde\u8f74\u8f6c\u4e86\uff0c\u4e0b\u6b21\u53ef\u4ee5\u6362\u4e2a\u4e0b\u80a2\u3001\u6838\u5fc3\u6216\u8f7b\u6709\u6c27\uff0c\u7ed9\u80a9\u8098\u8155\u653e\u4e2a\u5c0f\u5047\u3002")
 
     duration = result.activity_duration_minutes or 0
     calories = result.calories_burned or 0
     calories_per_minute = calories / duration if duration else 0
     if duration >= 90 or calories >= 800 or calories_per_minute >= 12:
-        tips.append("这次量不小，收操别省，拉伸和补水安排一下，别让明天的身体来群里投诉。")
+        tips.append("\u8fd9\u6b21\u91cf\u4e0d\u5c0f\uff0c\u6536\u64cd\u522b\u7701\uff0c\u62c9\u4f38\u548c\u8865\u6c34\u5b89\u6392\u4e00\u4e0b\uff0c\u522b\u8ba9\u660e\u5929\u7684\u8eab\u4f53\u6765\u7fa4\u91cc\u6295\u8bc9\u3002")
     elif duration >= 60 or calories >= 500:
-        tips.append("这次训练量挺实在，后面记得拉伸补水；下一练看疲劳感，别硬刚。")
+        tips.append("\u8fd9\u6b21\u8bad\u7ec3\u91cf\u633a\u5b9e\u5728\uff0c\u540e\u9762\u8bb0\u5f97\u62c9\u4f38\u8865\u6c34\uff1b\u4e0b\u4e00\u7ec3\u770b\u75b2\u52b3\u611f\uff0c\u522b\u786c\u521a\u3002")
 
     return "\n".join(tips[:2])
 
@@ -136,23 +136,23 @@ async def grade_request(settings: Settings, db: Session, request: GradingRequest
     responses = workflow.responses
     text = request.input.strip()
     if not text and not request.picture:
-        return GradingResponse(output=responses.no_input, score=0, note="无有效输入", inserted=False)
+        return GradingResponse(output=responses.no_input, score=0, note="\u65e0\u6709\u6548\u8f93\u5165", inserted=False)
 
     intent = detect_intent(text)
     if intent == Intent.UNSUPPORTED:
-        return GradingResponse(output=responses.unsupported, score=0, note="不支持要求", inserted=False)
+        return GradingResponse(output=responses.unsupported, score=0, note="\u4e0d\u652f\u6301\u8981\u6c42", inserted=False)
     if intent == Intent.CLAIM_SCORE:
-        return GradingResponse(output=responses.claim_score, score=0, note="主张分数", inserted=False)
+        return GradingResponse(output=responses.claim_score, score=0, note="\u4e3b\u5f20\u5206\u6570", inserted=False)
     if intent == Intent.QUERY_OWN_SCORE:
         score = query_user_score(db, request.sender_id, settings.default_season_start)
         output = responses.query_own_score.format(score=score)
-        return GradingResponse(output=output, score=0, note="查询本人积分", inserted=False)
+        return GradingResponse(output=output, score=0, note="\u67e5\u8be2\u672c\u4eba\u79ef\u5206", inserted=False)
     if intent == Intent.HEALTH_ADVICE:
         user_activity_memory = query_user_activity_memory(db, request.sender_id)
         output = await answer_health_question(settings, text, user_activity_memory=user_activity_memory, user_name=request.sender_name)
-        return GradingResponse(output=output, score=0, note="健康问答", inserted=False)
+        return GradingResponse(output=output, score=0, note="\u5065\u5eb7\u95ee\u7b54", inserted=False)
     if has_processed_message(db, request.source_message_id):
-        return GradingResponse(output="这条打卡已经记录过啦，避免重复加分。", score=0, note="重复消息", inserted=False)
+        return GradingResponse(output="\u8fd9\u6761\u6253\u5361\u5df2\u7ecf\u8bb0\u5f55\u8fc7\u5566\uff0c\u907f\u514d\u91cd\u590d\u52a0\u5206\u3002", score=0, note="\u91cd\u590d\u6d88\u606f", inserted=False)
 
     user_activity_memory = query_user_activity_memory(db, request.sender_id)
     recent_activity_types = query_recent_activity_types(db, request.sender_id)
@@ -206,7 +206,7 @@ def generate_report(db: Session, since: str) -> ReportResponse:
     if not rows:
         return ReportResponse(title=title, markdown=f"{title}\n\n{report_config.empty_message}")
 
-    lines = [title, "", "| 排名 | 姓名 | 分数 |", "| --- | --- | ---: |"]
+    lines = [title, "", "| \u6392\u540d | \u59d3\u540d | \u5206\u6570 |", "| --- | --- | ---: |"]
     previous_score: int | None = None
     previous_rank = 0
     for index, row in enumerate(rows, start=1):
@@ -255,14 +255,14 @@ def generate_weekly_calorie_report(db: Session, week_start: str | None = None) -
     if not rows:
         return ReportResponse(title=title, markdown=f"{title}\n\n{report_config.weekly_calorie_empty_message}")
 
-    lines = [title, "", "| 排名 | 姓名 | 估算消耗 | 打卡次数 |", "| --- | --- | ---: | ---: |"]
+    lines = [title, "", "| \u6392\u540d | \u59d3\u540d | \u4f30\u7b97\u6d88\u8017 | \u6253\u5361\u6b21\u6570 |", "| --- | --- | ---: | ---: |"]
     previous_calories: int | None = None
     previous_rank = 0
     for index, row in enumerate(rows, start=1):
         calories = int(row.calories or 0)
         rank = previous_rank if calories == previous_calories else index
         name = row.sender_name or row.sender_id
-        lines.append(f"| {rank} | {name} | {calories} 千卡 | {int(row.checkin_count)} |")
+        lines.append(f"| {rank} | {name} | {calories} \u5343\u5361 | {int(row.checkin_count)} |")
         previous_calories = calories
         previous_rank = rank
 

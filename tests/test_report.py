@@ -25,21 +25,21 @@ def test_report_uses_competition_ranking() -> None:
                     bstudio_create_time=datetime(2025, 5, 12, 8, 0, 0),
                     score_delta=3,
                     sender_id="u1",
-                    sender_name="甲",
+                    sender_name="\u7532",
                 ),
                 ScoreLog(
                     id="2",
                     bstudio_create_time=datetime(2025, 5, 12, 8, 0, 0),
                     score_delta=3,
                     sender_id="u2",
-                    sender_name="乙",
+                    sender_name="\u4e59",
                 ),
                 ScoreLog(
                     id="3",
                     bstudio_create_time=datetime(2025, 5, 12, 8, 0, 0),
                     score_delta=1,
                     sender_id="u3",
-                    sender_name="丙",
+                    sender_name="\u4e19",
                 ),
             ]
         )
@@ -47,21 +47,27 @@ def test_report_uses_competition_ranking() -> None:
 
         report = generate_report(db, "2025-05-11")
 
-    assert "| 1 | 甲 | 3 |" in report.markdown
-    assert "| 1 | 乙 | 3 |" in report.markdown
-    assert "| 3 | 丙 | 1 |" in report.markdown
+    assert "| 1 | \u7532 | 3 |" in report.markdown
+    assert "| 1 | \u4e59 | 3 |" in report.markdown
+    assert "| 3 | \u4e19 | 1 |" in report.markdown
 
 
 def test_report_command_detection() -> None:
-    assert _is_report_command("发一下积分榜")
-    assert _is_report_command("今日排行榜")
-    assert not _is_report_command("我的积分是多少")
-    assert _is_weekly_report_command("发一下本周总结")
-    assert _is_weekly_report_command("卡路里周报")
-    assert detect_intent("跑步 30 分钟大概消耗多少卡？") == Intent.HEALTH_ADVICE
-    assert detect_intent("卡路里怎么算的？") == Intent.HEALTH_ADVICE
-    assert detect_intent("减脂期晚饭怎么吃比较好？") == Intent.HEALTH_ADVICE
-    assert detect_intent("今天跑步 30 分钟") == Intent.NORMAL
+    assert detect_intent("\u6211\u7684\u79ef\u5206") == Intent.QUERY_OWN_SCORE
+    assert detect_intent("\u67e5\u79ef\u5206") == Intent.QUERY_OWN_SCORE
+    for command in ["\u6392\u884c\u699c", "\u79ef\u5206\u699c", "\u6392\u540d", "\u65e5\u62a5"]:
+        assert _is_report_command(command)
+    for command in ["\u5468\u62a5", "\u672c\u5468\u603b\u7ed3", "\u672c\u5468\u6d88\u8017", "\u5361\u8def\u91cc\u5468\u62a5"]:
+        assert _is_weekly_report_command(command)
+    assert _is_report_command("\u53d1\u4e00\u4e0b\u79ef\u5206\u699c")
+    assert _is_report_command("\u4eca\u65e5\u6392\u884c\u699c")
+    assert not _is_report_command("\u6211\u7684\u79ef\u5206\u662f\u591a\u5c11")
+    assert _is_weekly_report_command("\u53d1\u4e00\u4e0b\u672c\u5468\u603b\u7ed3")
+    assert _is_weekly_report_command("\u5361\u8def\u91cc\u5468\u62a5")
+    assert detect_intent("\u8dd1\u6b65 30 \u5206\u949f\u5927\u6982\u6d88\u8017\u591a\u5c11\u5361\uff1f") == Intent.HEALTH_ADVICE
+    assert detect_intent("\u5361\u8def\u91cc\u600e\u4e48\u7b97\u7684\uff1f") == Intent.HEALTH_ADVICE
+    assert detect_intent("\u51cf\u8102\u671f\u665a\u996d\u600e\u4e48\u5403\u6bd4\u8f83\u597d\uff1f") == Intent.HEALTH_ADVICE
+    assert detect_intent("\u4eca\u5929\u8dd1\u6b65 30 \u5206\u949f") == Intent.NORMAL
 
 
 def test_extract_text_and_image_message() -> None:
@@ -71,11 +77,11 @@ def test_extract_text_and_image_message() -> None:
             "message_id": "om_xxx",
             "chat_id": "oc_xxx",
             "chat_type": "group",
-            "content": '{"text":"今天跑步 5 公里","image_key":"img_xxx"}',
+            "content": '{"text":"\u4eca\u5929\u8dd1\u6b65 5 \u516c\u91cc","image_key":"img_xxx"}',
         },
     }
 
-    assert _extract_message(event) == ("om_xxx", "ou_xxx", "今天跑步 5 公里", "img_xxx", "oc_xxx", "group")
+    assert _extract_message(event) == ("om_xxx", "ou_xxx", "\u4eca\u5929\u8dd1\u6b65 5 \u516c\u91cc", "img_xxx", "oc_xxx", "group")
 
 
 def test_extract_rich_text_message() -> None:
@@ -83,21 +89,21 @@ def test_extract_rich_text_message() -> None:
         "message": {
             "content": (
                 '{"post":{"zh_cn":{"content":'
-                '[[{"tag":"text","text":"今天骑行 "},{"tag":"text","text":"10 公里"}]]}}}'
+                '[[{"tag":"text","text":"\u4eca\u5929\u9a91\u884c "},{"tag":"text","text":"10 \u516c\u91cc"}]]}}}'
             )
         }
     }
 
-    assert _extract_message(event) == ("", "", "今天骑行 10 公里", "", "", "")
+    assert _extract_message(event) == ("", "", "\u4eca\u5929\u9a91\u884c 10 \u516c\u91cc", "", "", "")
 
 
 def test_friendly_name_and_image_only_prompt() -> None:
-    assert _friendly_name("张旭阳") == "旭阳"
+    assert _friendly_name("\u5f20\u65ed\u9633") == "\u65ed\u9633"
     assert _friendly_name("Alice") == "Alice"
-    assert "旭阳" in _user_context_text([], "张旭阳")
+    assert "\u65ed\u9633" in _user_context_text([], "\u5f20\u65ed\u9633")
     content = _message_content("", "http://example.com/run.jpg")
     assert content[0]["type"] == "text"
-    assert "图片内容" in content[0]["text"]
+    assert "\u56fe\u7247\u5185\u5bb9" in content[0]["text"]
     assert content[1]["type"] == "image_url"
 
 
@@ -120,14 +126,14 @@ def test_user_score_uses_season_start_when_provided() -> None:
                     bstudio_create_time=datetime(2025, 5, 1, 8, 0, 0),
                     score_delta=100,
                     sender_id="u1",
-                    sender_name="甲",
+                    sender_name="\u7532",
                 ),
                 ScoreLog(
                     id="new",
                     bstudio_create_time=datetime(2025, 5, 12, 8, 0, 0),
                     score_delta=3,
                     sender_id="u1",
-                    sender_name="甲",
+                    sender_name="\u7532",
                 ),
             ]
         )
@@ -180,7 +186,7 @@ def test_processed_message_detection() -> None:
                 bstudio_create_time=datetime(2025, 5, 12, 8, 0, 0),
                 score_delta=3,
                 sender_id="u1",
-                sender_name="甲",
+                sender_name="\u7532",
                 source_message_id="om_1",
             )
         )
@@ -192,29 +198,29 @@ def test_processed_message_detection() -> None:
 
 def test_training_tip_flags_balance_and_high_volume() -> None:
     result = GradeResult(
-        output="不错",
+        output="\u4e0d\u9519",
         score=3,
-        note="胸训90分钟",
-        activity_type="胸部力量",
+        note="\u80f8\u8bad90\u5206\u949f",
+        activity_type="\u80f8\u90e8\u529b\u91cf",
         activity_duration_minutes=95,
         calories_burned=850,
-        activity_summary="胸部力量",
+        activity_summary="\u80f8\u90e8\u529b\u91cf",
     )
 
-    tip = build_training_tip(result, ["肩部力量", "上肢力量"])
+    tip = build_training_tip(result, ["\u80a9\u90e8\u529b\u91cf", "\u4e0a\u80a2\u529b\u91cf"])
 
-    assert "上肢" in tip
-    assert "下肢" in tip
-    assert "拉伸" in tip
+    assert "\u4e0a\u80a2" in tip
+    assert "\u4e0b\u80a2" in tip
+    assert "\u62c9\u4f38" in tip
 
 
 def test_workflow_config_loads_editable_fields() -> None:
     workflow = get_workflow_config()
 
-    assert "排行榜" in workflow.intent_keywords.report_command
-    assert "周报" in workflow.intent_keywords.weekly_report_command
-    assert "卡路里" in workflow.intent_keywords.health_advice
-    assert "公式" in workflow.intent_keywords.health_advice
+    assert "\u6392\u884c\u699c" in workflow.intent_keywords.report_command
+    assert "\u5468\u62a5" in workflow.intent_keywords.weekly_report_command
+    assert "\u5361\u8def\u91cc" in workflow.intent_keywords.health_advice
+    assert "\u516c\u5f0f" in workflow.intent_keywords.health_advice
     assert "{score}" in workflow.responses.query_own_score
     assert "{since}" in workflow.report.title_template
 
@@ -232,8 +238,8 @@ def test_weekly_calorie_report_ranks_by_calories() -> None:
                     bstudio_create_time=datetime(2026, 7, 6, 8, 0, 0),
                     score_delta=3,
                     sender_id="u1",
-                    sender_name="甲",
-                    activity_type="跑步",
+                    sender_name="\u7532",
+                    activity_type="\u8dd1\u6b65",
                     calories_burned=300,
                 ),
                 ScoreLog(
@@ -241,8 +247,8 @@ def test_weekly_calorie_report_ranks_by_calories() -> None:
                     bstudio_create_time=datetime(2026, 7, 7, 8, 0, 0),
                     score_delta=3,
                     sender_id="u2",
-                    sender_name="乙",
-                    activity_type="骑行",
+                    sender_name="\u4e59",
+                    activity_type="\u9a91\u884c",
                     calories_burned=500,
                 ),
                 ScoreLog(
@@ -250,8 +256,8 @@ def test_weekly_calorie_report_ranks_by_calories() -> None:
                     bstudio_create_time=datetime(2026, 6, 30, 8, 0, 0),
                     score_delta=3,
                     sender_id="u1",
-                    sender_name="甲",
-                    activity_type="跑步",
+                    sender_name="\u7532",
+                    activity_type="\u8dd1\u6b65",
                     calories_burned=999,
                 ),
             ]
@@ -260,9 +266,9 @@ def test_weekly_calorie_report_ranks_by_calories() -> None:
 
         report = generate_weekly_calorie_report(db, "2026-07-06")
 
-    assert "| 1 | 乙 | 500 千卡 | 1 |" in report.markdown
-    assert "| 2 | 甲 | 300 千卡 | 1 |" in report.markdown
-    assert "999 千卡" not in report.markdown
+    assert "| 1 | \u4e59 | 500 \u5343\u5361 | 1 |" in report.markdown
+    assert "| 2 | \u7532 | 300 \u5343\u5361 | 1 |" in report.markdown
+    assert "999 \u5343\u5361" not in report.markdown
 
 
 def test_user_activity_memory_uses_recent_activity_logs() -> None:
@@ -277,15 +283,15 @@ def test_user_activity_memory_uses_recent_activity_logs() -> None:
                 bstudio_create_time=datetime(2026, 7, 8, 8, 0, 0),
                 score_delta=3,
                 sender_id="u1",
-                sender_name="甲",
-                activity_type="练腿",
+                sender_name="\u7532",
+                activity_type="\u7ec3\u817f",
                 activity_duration_minutes=45,
                 calories_burned=260,
-                activity_summary="力量训练",
+                activity_summary="\u529b\u91cf\u8bad\u7ec3",
             )
         )
         db.commit()
 
         memory = query_user_activity_memory(db, "u1")
 
-    assert memory == ["07-08，练腿，45分钟，约260千卡"]
+    assert memory == ["07-08\uff0c\u7ec3\u817f\uff0c45\u5206\u949f\uff0c\u7ea6260\u5343\u5361"]
