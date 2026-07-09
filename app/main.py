@@ -88,18 +88,19 @@ def _extract_text_from_content(content: dict[str, Any]) -> str:
     return "".join(chunks).strip()
 
 
-def _extract_message(event: dict[str, Any]) -> tuple[str, str, str, str, str, str]:
+def _extract_message(event: dict[str, Any]) -> tuple[str, str, str, str, str, str, str]:
     sender_id = event.get("sender", {}).get("sender_id", {}).get("open_id", "")
     message = event.get("message", {})
     message_id = message.get("message_id", "")
     chat_id = message.get("chat_id", "")
     chat_type = message.get("chat_type", "")
+    create_time = str(message.get("create_time") or "")
     raw_content = message.get("content") or "{}"
     try:
         content = json.loads(raw_content)
     except json.JSONDecodeError:
         content = {}
-    return message_id, sender_id, _extract_text_from_content(content), content.get("image_key", ""), chat_id, chat_type
+    return message_id, sender_id, _extract_text_from_content(content), content.get("image_key", ""), chat_id, chat_type, create_time
 
 
 def _is_report_command(text: str) -> bool:
@@ -195,7 +196,7 @@ async def feishu_events(
         if header.get("event_type") != "im.message.receive_v1":
             return {"ok": True, "ignored": True}
 
-        message_id, sender_id, text, image_key, chat_id, chat_type = _extract_message(payload.get("event", {}))
+        message_id, sender_id, text, image_key, chat_id, chat_type, message_created_at = _extract_message(payload.get("event", {}))
         _remember_report_chat_id(chat_id, chat_type)
         logger.info(
             "Feishu message received: message_id=%s sender_id=%s chat_id=%s chat_type=%s has_text=%s has_image=%s",
@@ -241,7 +242,14 @@ async def feishu_events(
         result = await grade_request(
             settings,
             db,
-            GradingRequest(input=text, picture=picture, sender_id=sender_id, sender_name=sender_name, source_message_id=message_id),
+            GradingRequest(
+                input=text,
+                picture=picture,
+                sender_id=sender_id,
+                sender_name=sender_name,
+                source_message_id=message_id,
+                message_created_at=message_created_at,
+            ),
         )
 
         replied = False

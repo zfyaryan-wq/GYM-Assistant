@@ -9,6 +9,7 @@ from app.llm import GradeResult, _friendly_name, _message_content, _user_context
 from app.main import _extract_message, _is_report_command, _is_weekly_report_command, _verify_feishu_token
 from app.services import build_training_tip, generate_report, generate_weekly_calorie_report, has_processed_message, query_user_activity_memory, query_user_score
 from app.config import Settings
+from app.weather import build_weather_training_tip
 from app.workflow_config import get_workflow_config
 
 
@@ -77,11 +78,12 @@ def test_extract_text_and_image_message() -> None:
             "message_id": "om_xxx",
             "chat_id": "oc_xxx",
             "chat_type": "group",
+            "create_time": "1783580400000",
             "content": '{"text":"\u4eca\u5929\u8dd1\u6b65 5 \u516c\u91cc","image_key":"img_xxx"}',
         },
     }
 
-    assert _extract_message(event) == ("om_xxx", "ou_xxx", "\u4eca\u5929\u8dd1\u6b65 5 \u516c\u91cc", "img_xxx", "oc_xxx", "group")
+    assert _extract_message(event) == ("om_xxx", "ou_xxx", "\u4eca\u5929\u8dd1\u6b65 5 \u516c\u91cc", "img_xxx", "oc_xxx", "group", "1783580400000")
 
 
 def test_extract_rich_text_message() -> None:
@@ -94,7 +96,7 @@ def test_extract_rich_text_message() -> None:
         }
     }
 
-    assert _extract_message(event) == ("", "", "\u4eca\u5929\u9a91\u884c 10 \u516c\u91cc", "", "", "")
+    assert _extract_message(event) == ("", "", "\u4eca\u5929\u9a91\u884c 10 \u516c\u91cc", "", "", "", "")
 
 
 def test_friendly_name_and_image_only_prompt() -> None:
@@ -140,6 +142,38 @@ def test_user_score_uses_season_start_when_provided() -> None:
         db.commit()
 
         assert query_user_score(db, "u1", "2025-05-11") == 3
+
+
+def test_report_uses_current_season_start() -> None:
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(bind=engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        db.add_all(
+            [
+                ScoreLog(
+                    id="old",
+                    bstudio_create_time=datetime(2025, 5, 1, 8, 0, 0),
+                    score_delta=100,
+                    sender_id="u1",
+                    sender_name="Old Score",
+                ),
+                ScoreLog(
+                    id="new",
+                    bstudio_create_time=datetime(2025, 5, 11, 8, 0, 0),
+                    score_delta=3,
+                    sender_id="u1",
+                    sender_name="Current Score",
+                ),
+            ]
+        )
+        db.commit()
+
+        report = generate_report(db, Settings().default_season_start)
+
+    assert "| 1 | Current Score | 3 |" in report.markdown
+    assert "100" not in report.markdown
 
 
 def test_report_groups_by_sender_id_when_name_changes() -> None:
@@ -212,6 +246,55 @@ def test_training_tip_flags_balance_and_high_volume() -> None:
     assert "\u4e0a\u80a2" in tip
     assert "\u4e0b\u80a2" in tip
     assert "\u62c9\u4f38" in tip
+
+
+def test_training_tip_flags_cardio_strength_patterns() -> None:
+    mixed_result = GradeResult(
+        output="ok",
+        score=3,
+        note="\u8dd1\u6b65+\u529b\u91cf",
+        activity_type="\u6709\u6c27+\u65e0\u6c27\u6df7\u5408",
+        activity_duration_minutes=50,
+        calories_burned=420,
+        activity_summary="\u8dd1\u6b65+\u529b\u91cf",
+    )
+    cardio_result = GradeResult(output="ok", score=3, note="\u8dd1\u6b65", activity_type="\u8dd1\u6b65")
+    strength_result = GradeResult(output="ok", score=3, note="\u529b\u91cf", activity_type="\u65e0\u6c27\u529b\u91cf")
+
+    mixed_tip = build_training_tip(mixed_result, [])
+    cardio_tip = build_training_tip(cardio_result, ["\u9a91\u884c", "\u8df3\u7ef3", "\u6162\u8dd1"])
+    strength_tip = build_training_tip(strength_result, ["\u80f8\u90e8\u529b\u91cf", "\u80cc\u90e8\u529b\u91cf", "\u817f\u90e8\u529b\u91cf"])
+
+    assert "\u6709\u6c27+\u65e0\u6c27" in mixed_tip
+    assert "\u51cf\u8102" in cardio_tip
+    assert "\u8425\u517b" in cardio_tip
+    assert "\u529b\u91cf" in strength_tip
+    assert "\u5173\u8282" in strength_tip
+
+
+def test_weather_tip_flags_heat_and_rain() -> None:
+    heat_tip = build_weather_training_tip("Beijing", 36, 10, 0, message_time=datetime(2026, 7, 9, 8, 0, 0))
+    rain_tip = build_weather_training_tip("Beijing", 26, 80, 61, message_time=datetime(2026, 7, 9, 20, 0, 0))
+    previous_day_tip = build_weather_training_tip(
+        "Beijing",
+        26,
+        10,
+        0,
+        message_time=datetime(2026, 7, 9, 9, 0, 0),
+        is_previous_day_activity=True,
+        future_precipitation_probabilities=[70, 20],
+        future_weather_codes=[61, 0],
+    )
+
+    assert "Beijing" in heat_tip
+    assert "36C" in heat_tip
+    assert "\u8865\u6c34" in heat_tip
+    assert "\u4e0a\u73ed" in heat_tip
+    assert "\u964d\u96e8" in rain_tip
+    assert "\u56de\u5bb6" in rain_tip
+    assert "\u5b89\u5168" in rain_tip
+    assert "\u660e\u5929" in previous_day_tip
+    assert "\u4f1e" in previous_day_tip
 
 
 def test_workflow_config_loads_editable_fields() -> None:

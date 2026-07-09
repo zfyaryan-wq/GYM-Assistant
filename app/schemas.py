@@ -8,6 +8,7 @@ class GradingRequest(BaseModel):
     sender_name: str = ""
     sys_platform: str = "10000011"
     source_message_id: str = ""
+    message_created_at: str = ""
 
 
 class GradingResponse(BaseModel):

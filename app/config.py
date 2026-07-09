@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     feishu_encrypt_key: str = Field(default="", repr=False)
     feishu_report_chat_id: str = ""
 
+    weather_enabled: bool = True
+    weather_city: str = "\u5317\u4eac"
+    weather_latitude: float = 39.9042
+    weather_longitude: float = 116.4074
+    weather_timeout_seconds: float = 3.0
+    weather_high_temp_celsius: float = 32.0
+
     @property
     def chat_completions_url(self) -> str:
         return f"{self.llm_base_url.rstrip('/')}/chat/completions"
