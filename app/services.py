@@ -5,7 +5,7 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
 from app.config import Settings
-from app.db import ScoreLog
+from app.db import MessageLog, ScoreLog
 from app.intent import Intent, detect_intent
 from app.llm import GradeResult, answer_health_question, grade_with_llm
 from app.schemas import GradingRequest, GradingResponse, ReportResponse
@@ -15,6 +15,52 @@ from app.workflow_config import get_workflow_config
 
 def _new_log_id() -> str:
     return str(int(datetime.now().timestamp() * 1000)) + uuid4().hex[:8]
+
+
+def add_message_log(
+    db: Session,
+    *,
+    message_id: str,
+    sender_id: str,
+    sender_name: str,
+    chat_id: str,
+    chat_type: str,
+    text: str,
+    image_key: str,
+    intent: str,
+    message_created_at: str,
+) -> MessageLog:
+    row = None
+    if message_id:
+        row = db.scalar(select(MessageLog).where(MessageLog.message_id == message_id).limit(1))
+    if row is None:
+        row = MessageLog(id=_new_log_id(), message_id=message_id or "")
+        db.add(row)
+
+    row.sender_id = sender_id or ""
+    row.sender_name = sender_name or ""
+    row.chat_id = chat_id or ""
+    row.chat_type = chat_type or ""
+    row.text = text or ""
+    row.image_key = image_key or ""
+    row.intent = intent or ""
+    row.message_created_at = message_created_at or ""
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+def update_message_log_response(db: Session, message_id: str, bot_reply: str, intent: str | None = None) -> None:
+    if not message_id:
+        return
+    row = db.scalar(select(MessageLog).where(MessageLog.message_id == message_id).limit(1))
+    if row is None:
+        return
+    if intent is not None:
+        row.intent = intent
+    row.bot_reply = bot_reply or ""
+    row.processed_at = datetime.now()
+    db.commit()
 
 
 def add_score_log(db: Session, request: GradingRequest, result: GradeResult) -> ScoreLog:

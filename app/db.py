@@ -1,7 +1,7 @@
 from collections.abc import Generator
 from pathlib import Path
 
-from sqlalchemy import DateTime, Integer, String, create_engine, func, inspect, text
+from sqlalchemy import DateTime, Integer, String, Text, create_engine, func, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, sessionmaker
 
 from app.config import get_settings
@@ -27,6 +27,24 @@ class ScoreLog(Base):
     activity_duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     calories_burned: Mapped[int | None] = mapped_column(Integer, nullable=True)
     activity_summary: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+
+
+class MessageLog(Base):
+    __tablename__ = "message_logs"
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    message_id: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    sender_id: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    sender_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    chat_id: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    chat_type: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    text: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    image_key: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    intent: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    bot_reply: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    message_created_at: Mapped[str] = mapped_column(String(64), nullable=False, default="")
+    created_at: Mapped[DateTime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+    processed_at: Mapped[DateTime | None] = mapped_column(DateTime, nullable=True)
 
 
 def _engine_args(database_url: str) -> dict:

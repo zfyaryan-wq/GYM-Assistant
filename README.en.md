@@ -138,12 +138,12 @@ Bot behavior:
 
 ## Data Storage
 
-The database currently stores structured grading logs, not full conversation transcripts:
+The database stores both conversation details and structured grading results:
 
-- Stored: `message_id`, user ID, user name, score, note, activity type, duration, calories, activity summary, and creation time.
-- Not fully stored: original message text, original image key, `chat_id`, `chat_type`, final bot reply text, leaderboard query records, and weekly report query records.
+- `message_logs`: Feishu message ID, user ID, user name, `chat_id`, `chat_type`, original text, image key, detected intent, final bot reply, message creation time, and processing time.
+- `score_logs`: grading results, including user ID, user name, source message ID, score, note, activity type, duration, calories, activity summary, and insertion time.
 
-For complete conversation analytics or debugging, add a dedicated `message_logs` table.
+Leaderboard queries, weekly reports, personal score queries, health Q&A, and normal check-ins are all recorded in `message_logs` for debugging and interaction analysis.
 
 ## Customizing The Workflow
 

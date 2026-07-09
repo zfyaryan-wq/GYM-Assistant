@@ -3,11 +3,20 @@ from datetime import datetime
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.db import Base, ScoreLog
+from app.db import Base, MessageLog, ScoreLog
 from app.intent import Intent, detect_intent
 from app.llm import GradeResult, _friendly_name, _message_content, _user_context_text
-from app.main import _extract_message, _is_report_command, _is_weekly_report_command, _verify_feishu_token
-from app.services import build_training_tip, generate_report, generate_weekly_calorie_report, has_processed_message, query_user_activity_memory, query_user_score
+from app.main import BOT_INTRO_TEXT, _extract_bot_added_chat_id, _extract_message, _is_report_command, _is_weekly_report_command, _verify_feishu_token
+from app.services import (
+    add_message_log,
+    build_training_tip,
+    generate_report,
+    generate_weekly_calorie_report,
+    has_processed_message,
+    query_user_activity_memory,
+    query_user_score,
+    update_message_log_response,
+)
 from app.config import Settings
 from app.weather import build_weather_training_tip
 from app.workflow_config import get_workflow_config
@@ -97,6 +106,15 @@ def test_extract_rich_text_message() -> None:
     }
 
     assert _extract_message(event) == ("", "", "\u4eca\u5929\u9a91\u884c 10 \u516c\u91cc", "", "", "", "")
+
+
+def test_bot_added_event_intro_helpers() -> None:
+    assert _extract_bot_added_chat_id({"chat_id": "oc_direct"}) == "oc_direct"
+    assert _extract_bot_added_chat_id({"chat": {"chat_id": "oc_nested"}}) == "oc_nested"
+    assert "GYM-Assistant" in BOT_INTRO_TEXT
+    assert "\u6392\u884c\u699c" in BOT_INTRO_TEXT
+    assert "\u5468\u62a5" in BOT_INTRO_TEXT
+    assert "\u5929\u6c14" in BOT_INTRO_TEXT
 
 
 def test_friendly_name_and_image_only_prompt() -> None:
@@ -228,6 +246,48 @@ def test_processed_message_detection() -> None:
 
         assert has_processed_message(db, "om_1")
         assert not has_processed_message(db, "om_2")
+
+
+def test_message_log_records_and_updates_reply() -> None:
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(bind=engine)
+    session_factory = sessionmaker(bind=engine)
+
+    with session_factory() as db:
+        add_message_log(
+            db,
+            message_id="om_1",
+            sender_id="ou_1",
+            sender_name="Alice",
+            chat_id="oc_1",
+            chat_type="group",
+            text="hello",
+            image_key="img_1",
+            intent="normal",
+            message_created_at="1783580400000",
+        )
+        add_message_log(
+            db,
+            message_id="om_1",
+            sender_id="ou_1",
+            sender_name="Alice B",
+            chat_id="oc_1",
+            chat_type="group",
+            text="hello again",
+            image_key="img_1",
+            intent="health_advice",
+            message_created_at="1783580400000",
+        )
+        update_message_log_response(db, "om_1", "reply text", "health_advice")
+
+        rows = db.query(MessageLog).all()
+
+    assert len(rows) == 1
+    assert rows[0].sender_name == "Alice B"
+    assert rows[0].text == "hello again"
+    assert rows[0].intent == "health_advice"
+    assert rows[0].bot_reply == "reply text"
+    assert rows[0].processed_at is not None
 
 
 def test_training_tip_flags_balance_and_high_volume() -> None:
