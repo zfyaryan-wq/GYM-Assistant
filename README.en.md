@@ -1,5 +1,9 @@
 # GYM-Assistant
 
+<p align="center">
+  <img src="assets/logo.png" alt="GYM-Assistant logo" width="240">
+</p>
+
 [中文](README.md)
 
 A self-hosted Feishu bot backend for health check-ins, wellness scoring, calorie estimation, leaderboards, and weekly reports.

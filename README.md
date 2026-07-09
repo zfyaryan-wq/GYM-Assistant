@@ -1,5 +1,9 @@
 # GYM-Assistant
 
+<p align="center">
+  <img src="assets/logo.png" alt="GYM-Assistant logo" width="240">
+</p>
+
 [English](README.en.md)
 
 一个自托管的飞书健康打卡机器人后端，支持健康积分、运动卡路里估算、排行榜和周报。
